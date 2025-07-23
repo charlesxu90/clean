@@ -130,8 +130,10 @@ def CLEAN_max_sep_predictions(
         [sequence_label_esm_emb_dict[label].unsqueeze(0) 
             for label in sequence_label_esm_emb_dict])
     id_ec_inference_dummy = {seq_label:[] for seq_label in sequence_label_esm_emb_dict}
+    
     with torch.no_grad():
         model_emb_inference  = CLEAN_model(esm_emb_inference.to(device)).to("cpu").clone()
+    
     inference_dist = get_dist_map_test(
         emb_train, model_emb_inference, ec_id_dict_train, id_ec_inference_dummy, "cpu", torch.float32)
     inference_df = pd.DataFrame.from_dict(inference_dist)
@@ -142,21 +144,24 @@ def CLEAN_max_sep_predictions(
 def main():
     args = get_args()
     inference_fasta_path = f'{args.inference_fasta_folder}/{args.inference_fasta}'
+
+    # loading fasta file
     print("loading inference fasta")
     inference_fasta = pysam.FastaFile(inference_fasta_path)
-    dataset = CustomFastaBatchedDataset(
-        inference_fasta, fasta_start=args.inference_fasta_start, fasta_end=args.inference_fasta_end)
+    dataset = CustomFastaBatchedDataset(inference_fasta, fasta_start=args.inference_fasta_start, fasta_end=args.inference_fasta_end)
+    
     # keep track of index label mappings in the original fasta
     #sequence_indices_labels_dict = dataset.sequence_indices_labels_dict
     sequence_labels_indices_dict = dataset.sequence_labels_indices_dict
     batches = dataset.get_batch_indices(args.toks_per_batch, extra_toks_per_seq=1)
 
+    # loading ESM model
     print("loading ESM model")
     model, alphabet = pretrained.load_model_and_alphabet(args.esm_type)
     repr_layers = [(i + model.num_layers + 1) % (model.num_layers + 1) for i in [-1]] # only use the last layer
-    data_loader = torch.utils.data.DataLoader(
-        dataset, collate_fn=alphabet.get_batch_converter(args.truncation_seq_length), batch_sampler=batches
-    )
+    data_loader = torch.utils.data.DataLoader(dataset, collate_fn=alphabet.get_batch_converter(args.truncation_seq_length), 
+                                              batch_sampler=batches)
+    
     if torch.cuda.is_available() and not args.gpu_id:
         import os
         os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
@@ -168,6 +173,7 @@ def main():
     else: 
         device = "cpu"
 
+    # Load CLEAN model
     print("loading CLEAN model")
     CLEAN_model = LayerNormNet(512, 128, device, torch.float32)
     checkpoint = torch.load('./data/pretrained/'+ args.train_data +'.pth', map_location=device)
@@ -180,12 +186,13 @@ def main():
     sequence_label_esm_emb_dict = {}
     max_sep_predictions_dict = {} 
 
-    for batch_idx, (labels, strs, toks) in tqdm(enumerate(data_loader)):
-        embeddings = get_last_layer_emb(
-            args=args, model=model, toks=toks, strs=strs, repr_layers=repr_layers)
+    for batch_idx, (labels, strs, toks) in tqdm(enumerate(data_loader), total=len(data_loader), ncols=80, desc="Processing batches"):
+        # Geth ESM embeddings
+        embeddings = get_last_layer_emb(args=args, model=model, toks=toks, strs=strs, repr_layers=repr_layers)
         for label, emb in zip(labels, embeddings):
             sequence_label_esm_emb_dict[label] = emb
 
+        # Run Clean inference
         if (batch_idx + 1) % args.esm_batches_per_clean_inference == 0:
             # perform clean inference
             predictions = CLEAN_max_sep_predictions(
@@ -196,16 +203,15 @@ def main():
             
     # process any remaining sequences that didn't complete a full batch group
     if sequence_label_esm_emb_dict:
-        predictions = CLEAN_max_sep_predictions(
-            args, CLEAN_model, sequence_label_esm_emb_dict, emb_train, ec_id_dict_train, device
-        )
+        predictions = CLEAN_max_sep_predictions(args, CLEAN_model, sequence_label_esm_emb_dict, emb_train, ec_id_dict_train, device)
         max_sep_predictions_dict.update(predictions)
 
 
     max_sep_predictions_df = pd.DataFrame([
-        {'Index': sequence_labels_indices_dict[seq_id], 'Seq_ID': seq_id, 'Prediction': '; '.join(max_sep_predictions_dict[seq_id])}
-        for seq_id in max_sep_predictions_dict
-    ]).sort_values('Index').reset_index(drop=True)
+            {'Index': sequence_labels_indices_dict[seq_id], 'Seq_ID': seq_id, 'Prediction': '; '.join(max_sep_predictions_dict[seq_id])}
+            for seq_id in max_sep_predictions_dict
+        ]).sort_values('Index').reset_index(drop=True)
+    
     fasta_name = args.inference_fasta.split(".")[0]
     prediction_file_name = f"results/inputs/{fasta_name}_{args.inference_fasta_start}_{args.inference_fasta_end}.csv"
     max_sep_predictions_df.to_csv(prediction_file_name, index=False)

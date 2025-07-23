@@ -66,7 +66,7 @@ def write_pvalue_choices(df, csv_name, random_nk_dist_map, p_value=1e-5):
     all_test_EC = set()
     nk = len(random_nk_dist_map.keys())
     threshold = p_value*nk
-    for col in tqdm(df.columns):
+    for col in tqdm(df.columns, ncols=80, total=len(df.columns), desc="Writing p-value choices"):
         ec = []
         smallest_10_dist_df = df[col].nsmallest(10)
         for i in range(10):

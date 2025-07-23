@@ -7,7 +7,7 @@ def get_cluster_center(model_emb, ec_id_dict):
     cluster_center_model = {}
     id_counter = 0
     with torch.no_grad():
-        for ec in tqdm(list(ec_id_dict.keys())):
+        for ec in tqdm(list(ec_id_dict.keys()), total=len(ec_id_dict), ncols=80, desc="Calculating cluster centers"):
             ids_for_query = list(ec_id_dict[ec])
             id_counter_prime = id_counter + len(ids_for_query)
             emb_cluster = model_emb[id_counter: id_counter_prime]
@@ -21,7 +21,7 @@ def dist_map_helper_dot(keys1, lookup1, keys2, lookup2):
     dist = {}
     lookup1 = F.normalize(lookup1, dim=-1, p=2)
     lookup2 = F.normalize(lookup2, dim=-1, p=2)
-    for i, key1 in tqdm(enumerate(keys1)):
+    for i, key1 in tqdm(enumerate(keys1), total=len(keys1), ncols=80, desc="Calculating distance map"):
         current = lookup1[i].unsqueeze(0)
         dist_norm = (current - lookup2).norm(dim=1, p=2)
         dist_norm = dist_norm**2
@@ -35,7 +35,7 @@ def dist_map_helper_dot(keys1, lookup1, keys2, lookup2):
 
 def dist_map_helper(keys1, lookup1, keys2, lookup2):
     dist = {}
-    for i, key1 in tqdm(enumerate(keys1)):
+    for i, key1 in tqdm(enumerate(keys1), total=len(keys1), ncols=80, desc="Calculating distance map"):
         current = lookup1[i].unsqueeze(0)
         dist_norm = (current - lookup2).norm(dim=1, p=2)
         dist_norm = dist_norm.detach().cpu().numpy()

@@ -14,7 +14,7 @@ def mine_hard_negative(dist_map, knn=10):
     ecs = list(dist_map.keys())
     negative = {}
     print("Mining hard negatives:")
-    for _, target in tqdm(enumerate(ecs), total=len(ecs)):
+    for _, target in tqdm(enumerate(ecs), total=len(ecs), ncols=80, desc="Mining hard negatives"):
         sorted_orders = sorted(dist_map[target].items(), key=lambda x: x[1], reverse=False)
         assert sorted_orders != None, "all clusters have zero distances!"
         neg_ecs_start_index = find_first_non_zero_distance(sorted_orders)
