@@ -10,6 +10,7 @@ from CLEAN.distance_map import *
 import pandas as pd 
 from tqdm import tqdm
 import argparse
+from loguru import logger
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -146,7 +147,7 @@ def main():
     inference_fasta_path = f'{args.inference_fasta_folder}/{args.inference_fasta}'
 
     # loading fasta file
-    print("loading inference fasta")
+    logger.info("loading inference fasta")
     inference_fasta = pysam.FastaFile(inference_fasta_path)
     dataset = CustomFastaBatchedDataset(inference_fasta, fasta_start=args.inference_fasta_start, fasta_end=args.inference_fasta_end)
     
@@ -156,7 +157,7 @@ def main():
     batches = dataset.get_batch_indices(args.toks_per_batch, extra_toks_per_seq=1)
 
     # loading ESM model
-    print("loading ESM model")
+    logger.info("loading ESM model")
     model, alphabet = pretrained.load_model_and_alphabet(args.esm_type)
     repr_layers = [(i + model.num_layers + 1) % (model.num_layers + 1) for i in [-1]] # only use the last layer
     data_loader = torch.utils.data.DataLoader(dataset, collate_fn=alphabet.get_batch_converter(args.truncation_seq_length), 
@@ -174,7 +175,7 @@ def main():
         device = "cpu"
 
     # Load CLEAN model
-    print("loading CLEAN model")
+    logger.info("loading CLEAN model")
     CLEAN_model = LayerNormNet(512, 128, device, torch.float32)
     checkpoint = torch.load('./data/pretrained/'+ args.train_data +'.pth', map_location=device)
     CLEAN_model.load_state_dict(checkpoint)
@@ -215,6 +216,7 @@ def main():
     fasta_name = args.inference_fasta.split(".")[0]
     prediction_file_name = f"results/inputs/{fasta_name}_{args.inference_fasta_start}_{args.inference_fasta_end}.csv"
     max_sep_predictions_df.to_csv(prediction_file_name, index=False)
+    logger.info(f"Predictions saved to {prediction_file_name}")
 
 
 if __name__ == '__main__':
