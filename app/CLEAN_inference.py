@@ -58,7 +58,7 @@ class CustomFastaBatchedDataset(object):
         # Populate the sequence labels and the sequence strings.
         self.sequence_labels = list(subset_refs)
         self.sequence_strs = [fasta_obj.fetch(ref) for ref in subset_refs]
-        self.sequence_strs = [s for s in self.sequence_strs if 'J' not in s]  # Filter out sequences with 'J'
+        self.sequence_strs = [s if 'J' not in s else '' for s in self.sequence_strs ]  # Filter out sequences with 'J'
         
 
     def __len__(self):
