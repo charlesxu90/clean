@@ -24,7 +24,7 @@ mv pretrained data/pretrained
 ## Test run
 ```shell
 cd app
-python CLEAN_inference.py --inference_fasta new.fasta --gpu_id 0 
+python CLEAN_inference.py --inference_fasta data/new.fasta
 ```
 
 
