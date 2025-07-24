@@ -15,15 +15,12 @@ from loguru import logger
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--train_data", type=str, default="split100")
-    parser.add_argument("--inference_fasta_folder", type=str, default="data")
-    parser.add_argument("--inference_fasta", type=str, default="new.fasta")
+    parser.add_argument("--inference_fasta", type=str, default="data/new.fasta")
     parser.add_argument("--gpu_id", type=int, default=0)  # Set to None if you want to force CPU
-    parser.add_argument("--inference_fasta_start", type=int, default=0)
-    parser.add_argument("--inference_fasta_end", type=int, default=300)
     parser.add_argument("--toks_per_batch", type=int, default=2048)
     parser.add_argument("--esm_type", type=str, default="esm1b_t33_650M_UR50S")
     parser.add_argument("--truncation_seq_length", type=int, default=1022)
-    parser.add_argument("--esm_batches_per_clean_inference", type=int, default=200)
+    parser.add_argument("--esm_batches_per_clean_inference", type=int, default=1000)
     parser.add_argument("--gmm", type=str, default="./data/pretrained/gmm_ensumble.pkl")
 
     return parser.parse_args()
@@ -58,7 +55,7 @@ class CustomFastaBatchedDataset(object):
         # Populate the sequence labels and the sequence strings.
         self.sequence_labels = list(subset_refs)
         self.sequence_strs = [fasta_obj.fetch(ref) for ref in subset_refs]
-        self.sequence_strs = [s if 'J' not in s else '' for s in self.sequence_strs ]  # Filter out sequences with 'J'
+        self.sequence_strs = [s if 'J' not in s else 'AAA' for s in self.sequence_strs ]  # Filter out sequences with 'J'
         
 
     def __len__(self):
@@ -145,12 +142,14 @@ def CLEAN_max_sep_predictions(
 
 def main():
     args = get_args()
-    inference_fasta_path = f'{args.inference_fasta_folder}/{args.inference_fasta}'
+    inference_fasta_path = args.inference_fasta
 
     # loading fasta file
     logger.info("loading inference fasta")
     inference_fasta = pysam.FastaFile(inference_fasta_path)
-    dataset = CustomFastaBatchedDataset(inference_fasta, fasta_start=args.inference_fasta_start, fasta_end=args.inference_fasta_end)
+    # get the length of the fasta file
+    fasta_length = len(inference_fasta.references)
+    dataset = CustomFastaBatchedDataset(inference_fasta, fasta_start=0, fasta_end=fasta_length)
     
     # keep track of index label mappings in the original fasta
     #sequence_indices_labels_dict = dataset.sequence_indices_labels_dict
@@ -215,7 +214,7 @@ def main():
         ]).sort_values('Index').reset_index(drop=True)
     
     fasta_name = args.inference_fasta.split(".")[0]
-    prediction_file_name = f"results/inputs/{fasta_name}_{args.inference_fasta_start}_{args.inference_fasta_end}.csv"
+    prediction_file_name = f"{inference_fasta_path}_clean.csv"
     max_sep_predictions_df.to_csv(prediction_file_name, index=False)
     logger.info(f"Predictions saved to {prediction_file_name}")
 
