@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --nodes=1
-#SBATCH --gpus-per-node=2
+#SBATCH --gpus-per-node=1
 #SBATCH --cpus-per-gpu=16
 #SBATCH --mem=64G
 #SBATCH --constraint="v100"
@@ -16,4 +16,4 @@ conda activate /home/xux/miniconda3/envs/clean
 
 fasta_path=$1
 
-python CLEAN_inference.py --inference_fasta "$fasta_path" --gpu_id 0
+python CLEAN_inference.py --inference_fasta "$fasta_path"
