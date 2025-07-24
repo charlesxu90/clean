@@ -17,10 +17,10 @@ NR_DB_PATH=/home/xux/Desktop/IEnzyme/EnzymeMine/CLEAN/app/data/blastdb/nr_db
 # gunzip $NR_DB_PATH/nr.gz
 
 # Build blastp ncbi nr database
-# makeblastdb -in nr.fa  -dbtype prot -out nr_db -title "NCBI NR Protein Database"
+# makeblastdb -in nr.fa  -dbtype prot -out nr_db -parse_seqids -title "NCBI NR Protein Database"
 
 # Run blastp
-blastp -query $query_path -db nr_db -out blastp_results.tsv -outfmt "6 qseqid sseqid pident evalue bitscore stitle" -evalue 1e-5 -max_target_seqs 100
+# blastp -query $query_path -db nr_db -out blastp_results.tsv -outfmt "6 qseqid sseqid pident evalue bitscore stitle" -evalue 1e-5 -max_target_seqs 100
 
 # Get seq ids
 awk '{print $2}' blastp_results.tsv | sort | uniq > matched_sids.txt
